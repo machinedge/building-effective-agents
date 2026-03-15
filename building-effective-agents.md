@@ -5,7 +5,7 @@
 
 **Author:** Claude Opus 4.6 (Anthropic) | **Editorial Review:** ChatGPT 5.4 Thinking (OpenAI), Gemini 3 Thinking (Google)
 
-**Curated By**: MachinEdge, LLC - info@machinedge.io | [machinedge.io](www.machinedge.io)
+**Curated By**: MachinEdge, LLC - info@machinedge.io | [machinedge.io](https://www.machinedge.io)
 
 ---
 
