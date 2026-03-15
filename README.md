@@ -26,7 +26,7 @@ The guide is organized into 11 chapters and 3 appendices:
 
 ## How This Was Made
 
-This document was curated by [Shyam Yadati](mailto:shyam@machinedge.io) and drafted with the assistance of multiple LLMs: Claude Opus 4.6 (Anthropic), ChatGPT 5.4 Thinking (OpenAI), and Gemini 3 Thinking (Google). All factual claims should be verified against primary sources before being cited in other work.
+This document was curated by [MachinEdge, LLC](mailto:info@machinedge.io) and drafted with the assistance of multiple LLMs: Claude Opus 4.6 (Anthropic), ChatGPT 5.4 Thinking (OpenAI), and Gemini 3 Thinking (Google). All factual claims should be verified against primary sources before being cited in other work.
 
 ## License
 
