@@ -1,6 +1,6 @@
 # Building Effective Agents
 
-A comprehensive guide to designing and implementing LLM-based agentic systems — from simple augmented LLMs to fully autonomous agents.
+A guide to designing and implementing LLM-based agentic systems — from simple augmented LLMs to fully autonomous agents.
 
 ## About
 
