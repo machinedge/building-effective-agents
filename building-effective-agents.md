@@ -1,5 +1,5 @@
 # Building Effective Agents
-### A Comprehensive Guide — March 2026 Edition
+### March 2026 Edition
 
 *Originally published by Anthropic in December 2024. This guide synthesizes the original article with subsequent publications on context engineering, tool design, and long-running agents, updated for the current state of the art.*
 
