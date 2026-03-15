@@ -139,12 +139,6 @@ graph LR
     B -->|"Evals show<br/>it's not enough"| C["<b>Workflow</b><br/>Chain multiple calls<br/>~3–10× cost | ~15s"]
     C -->|"Evals show<br/>it's not enough"| D["<b>Constrained Agent</b><br/>Guardrails + iteration caps<br/>~10–50× cost | 1–5 min"]
     D -->|"Evals show<br/>it's not enough"| E["<b>Autonomous Agent</b><br/>Open-ended reasoning<br/>~50–1000× cost | min–hrs"]
-
-    style A fill:#e1f5ff,stroke:#333
-    style B fill:#e8f0fe,stroke:#333
-    style C fill:#fff3e0,stroke:#333
-    style D fill:#fce4ec,stroke:#333
-    style E fill:#ffcdd2,stroke:#333
 ```
 
 > 🔑
@@ -206,11 +200,6 @@ direction TB
 	    LLM -->|Read/Write| Memory
 	    Memory -->|Data| LLM
 	end
-
-style LLM fill:#ff9999
-style Retrieval fill:#99ccff
-style Tools fill:#99ff99
-style Memory fill:#ffcc99
 ```
 
 This simple diagram encompasses the foundation of agent engineering. Every agent pattern you'll encounter in this document - from simple chains to complex multi-agent systems, from autonomous long-running agents to tightly constrained tool-use patterns - is ultimately an arrangement or iteration of this core building block.
@@ -282,12 +271,6 @@ graph LR
 
     LongTerm -->|Historical Context| Session2
     LongTerm -->|Historical Context| Session3
-
-    style Session1 fill:#ffcccc
-    style Session2 fill:#ffcccc
-    style Session3 fill:#ffcccc
-    style Notes fill:#ffffcc
-    style LongTerm fill:#ccffcc
 ```
 
 Designing your memory systems is one of the most consequential decisions in agent engineering. How much should you keep in context? What should go into structured notes versus long-term storage? How should the agent decide what to write and when? How do you prevent memory from becoming stale or irrelevant? These questions don't have universal answers—they depend on your specific agent's task, the frequency of its sessions, and how much information it needs to maintain. But thinking carefully about memory architecture, rather than treating it as an afterthought, is essential for building agents that learn, adapt, and maintain coherence over time.
@@ -580,13 +563,6 @@ graph TB
     D --> E["Think again"]
     E -->|Continue Loop| D
     E -->|Stop| F["Final Output"]
-
-    style A fill:#e1f5ff
-    style B fill:#fff3e0
-    style C fill:#fff3e0
-    style D fill:#e8f5e9
-    style E fill:#fff3e0
-    style F fill:#e1f5ff
 ```
 
 Here's what happens in each step:
@@ -829,12 +805,6 @@ graph LR
     B -->|Reinitialize| C["Context Window 2<br/>Summary + new work"]
     C -->|Summarize| D["Summary<br/>Updated state"]
     D -->|Reinitialize| E["Context Window 3<br/>Summary + new work"]
-
-    style A fill:#e1f5ff
-    style C fill:#e1f5ff
-    style E fill:#e1f5ff
-    style B fill:#fff3e0
-    style D fill:#fff3e0
 ```
 
 ### 5.5.2 Structured Note-Taking: Persistent External Memory
@@ -873,11 +843,6 @@ graph TB
     S1 -->|Summary + findings| O
     S2 -->|Draft + notes| O
     S3 -->|Report + issues| O
-
-    style O fill:#f3e5f5
-    style S1 fill:#e8f5e9
-    style S2 fill:#e8f5e9
-    style S3 fill:#e8f5e9
 ```
 
 This is both a context management strategy and an architectural pattern. It enables scale—complex tasks can be broken into simpler pieces—while keeping the context windows of individual agents focused and efficient.
@@ -1050,13 +1015,6 @@ graph TB
     Server2 -->|Slack API| Slack["Slack"]
     Server3 -->|Notion API| Notion["Notion"]
     Custom -->|Internal API| Internal["Internal Systems"]
-
-    style Agent fill:#e1f5ff
-    style MCP fill:#fff3e0
-    style Server1 fill:#f3e5f5
-    style Server2 fill:#f3e5f5
-    style Server3 fill:#f3e5f5
-    style Custom fill:#f3e5f5
 ```
 
 ## Conclusion
@@ -1253,10 +1211,6 @@ graph LR
     B -->|"Agent reads<br/>via tool call"| C["Agent Context"]
     C -->|"Agent interprets<br/>as instruction"| D["Unauthorized Action"]
     D -->|Consequence| E["Data exfiltration,<br/>Unauthorized API call,<br/>Modified files"]
-
-    style A fill:#ffcccc
-    style D fill:#ffcccc
-    style E fill:#ffcccc
 ```
 
 ### 8.2.3 Defense Strategies for Prompt Injection
@@ -1338,13 +1292,6 @@ graph TD
     E -->|"Filter & Redact<br/>(PII, credentials)"| F["Output Layer"]
     F -->|"Log & Alert<br/>(anomaly detection)"| G["Monitoring Layer"]
     G --> H["Human Review &<br/>Incident Response"]
-
-    style B fill:#e1f5ff
-    style C fill:#e1f5ff
-    style D fill:#fff3e0
-    style E fill:#ffcccc
-    style F fill:#e1f5ff
-    style G fill:#f3e5f5
 ```
 
 Each layer adds some cost: validation takes time, separation requires architectural design, instruction hierarchy requires careful prompting, action confirmation adds latency, filtering can block legitimate operations. The goal is not maximum security—that would make agents unusable—but appropriate security for your risk profile.
@@ -1606,15 +1553,6 @@ graph TD
     SubKnown -->|Not at all| Multi["Full Multi-Agent System"]
 
     Refine["Need iterative<br/>refinement?"] -->|Yes| EvalOpt["Evaluator-Optimizer"]
-
-    style Single fill:#e1f5ff
-    style Chain fill:#fff3e0
-    style Parallel fill:#fff3e0
-    style Route fill:#fff3e0
-    style Agent fill:#e8f5e9
-    style OW fill:#e8f5e9
-    style Multi fill:#e8f5e9
-    style EvalOpt fill:#f3e5f5
 ```
 
 ## Appendix B: Tool Design Checklist
