@@ -1,7 +1,7 @@
 # Building Effective Agents
 ### March 2026 Edition
 
-*Originally published by Anthropic in December 2024. This guide synthesizes the original article with subsequent publications on context engineering, tool design, and long-running agents, updated for the current state of the art.*
+*Anthropic published the article, [Building effective agents](https://www.anthropic.com/research/building-effective-agents), in December 2024. This guide synthesizes the original article with subsequent publications on context engineering, tool design, and long-running agents, updated for the current state of the art.*
 
 **Author:** Claude Opus 4.6 (Anthropic) | **Editorial Review:** ChatGPT 5.4 Thinking (OpenAI), Gemini 3 Thinking (Google)
 
