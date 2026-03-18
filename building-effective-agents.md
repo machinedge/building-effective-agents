@@ -2,7 +2,7 @@
 
 ### March 2026 Edition
 
-*Anthropic published the article, [Building effective agents](https://www.anthropic.com/engineering/building-effective-agents), in December 2024. This guide synthesizes the original article with subsequent publications on context engineering, tool design, and long-running agents, updated for the current state of the art.*
+*Anthropic published the article, [Building effective agents](https://www.anthropic.com/engineering/building-effective-agents), in December 2024. This guide synthesizes the original article with subsequent publications on context engineering, tool design, and long-running agents, updated to reflect sources available as of March 2026.*
 
 **Author:** Claude Opus 4.6 (Anthropic) | **Editorial Review:** ChatGPT 5.4 Thinking (OpenAI), Gemini 3 Deep Think (Google)
 
@@ -11,7 +11,7 @@
 
 ---
 
-> **A note on sources and methodology.** This guide draws on five Anthropic engineering articles (cited in Appendix C), Anthropic documentation for the Claude Agent SDK, publicly available documentation for the Model Context Protocol, and the authors' synthesis of current industry practice. Where we cite specific numbers (ecosystem statistics, adoption figures), we attribute them to their source. Where we offer design guidance or heuristics, we frame them as practical recommendations based on vendor experience and community patterns, not as independently verified research findings. AI-assisted drafting and review; factual claims verified against the sources cited in Appendix C.
+> **A note on sources and methodology.** This guide draws on five Anthropic engineering articles, protocol specifications (MCP, A2A, ACP, ANP), Anthropic documentation for the Claude Agent SDK, benchmark sources (SWE-bench), and the authors' synthesis of current industry practice. All sources are listed in Appendix C. Where we cite specific numbers (ecosystem statistics, adoption figures), we attribute them to their source; ecosystem counts are project-reported, not independently audited. Where we offer design guidance, cost heuristics, or architectural recommendations, these represent vendor-informed synthesis and practical experience, not independently verified research findings. AI-assisted drafting and review; fact-checked against the sources listed in Appendix C and additional vendor documentation cited inline.
 >
 > **Last fact-checked:** March 2026. Model capabilities, MCP ecosystem details, and benchmark results evolve rapidly. Readers should verify time-sensitive claims against current primary sources. This guide uses Anthropic-specific terminology (e.g., Extended Thinking, Claude Agent SDK, Tool Search) alongside vendor-neutral concepts; where a feature is provider-specific, we note it in context.
 
@@ -129,7 +129,7 @@ We assume you're reading this because you've recognized that an LLM could improv
 The original "Building Effective Agents" article published by Anthropic in December 2024 established foundational principles that remain valid today. But the landscape has shifted meaningfully in the intervening months, and understanding what's new helps contextualize the guidance in this update.
 
 
-* **Model capabilities have expanded significantly.** Recent frontier models—including Claude's Opus 4.6 and Sonnet 4.6 series—bring substantial improvements in reasoning, planning, and tool use compared to their predecessors. Extended thinking (a feature in Claude and similar models that allows the model to reason through complex problems before responding) has moved from research concept to practical feature, and native reasoning tools (model-specific planning capabilities exposed through the API) now allow models to plan explicitly as part of the agent loop. Tool use itself has become more reliable and nuanced; models now handle edge cases, nested tool calls, and error recovery far more gracefully than they did a year ago. These improvements directly impact how you should design agentic systems; in many settings, you can delegate more complex decision-making to the model, provided you add appropriate evaluation and guardrails.
+* **Model capabilities have expanded significantly.** Recent frontier models—including Claude's Opus 4.6 and Sonnet 4.6 series—bring substantial improvements in reasoning, planning, and tool use compared to their predecessors. Extended thinking (a feature in Claude and similar models that allows the model to reason through complex problems before responding) has moved from research concept to practical feature, and native reasoning tools (model-specific planning capabilities, available in Claude and some other models, exposed through the API) now allow models to plan explicitly as part of the agent loop. Tool use itself has become more reliable and nuanced; models now handle edge cases, nested tool calls, and error recovery far more gracefully than they did a year ago. These improvements directly impact how you should design agentic systems; in many settings, you can delegate more complex decision-making to the model, provided you add appropriate evaluation and guardrails.
 
 
 * **The Model Context Protocol (MCP) has emerged as a widely adopted open standard for model-tool integration** (supported or integrated by OpenAI, Google, Microsoft, and others; see Appendix C). What was initially Anthropic's initiative has been supported or integrated in various ways by OpenAI, Google, and Microsoft, and in December 2025 the specification was [donated to the Linux Foundation's Agentic AI Foundation](https://www.anthropic.com/news/donating-the-model-context-protocol-and-establishing-of-the-agentic-ai-foundation). This convergence matters because it means tool and data integration is no longer a domain where every team reinvents the wheel. MCP improves portability of tool connectors across compliant clients and servers, though feature and authentication support still vary by implementation. We'll cover MCP extensively in this guide because it has become one of the leading open standards for agent-tool integration.
@@ -179,7 +179,7 @@ Before diving into patterns and architectures, we need shared vocabulary. These 
 
 **LLM call**: A single request sent to a language model, along with its response. This is the atomic unit of LLM-powered systems. A call includes the prompt (your input), the model's completion, and metadata like token counts and stop reasons.
 
-**Augmented LLM**: An LLM enhanced with additional capabilities provided at call time. Augmentation typically includes retrieval (documents or search results included in the prompt), tool definitions (descriptions of functions the model can invoke), and sometimes in-context examples or specialized instructions. The key characteristic: all augmentation happens before the model is called; the model sees the enriched context and produces a response based on it. A single call to an augmented LLM may still reference multiple tools or documents, but it's treated as one round of interaction.
+**Augmented LLM**: An LLM operating with retrieval, tool, and memory affordances available within the interaction. Augmentation typically includes retrieval (documents or search results), tool definitions (descriptions of functions the model can invoke), and sometimes in-context examples or specialized instructions. Some augmentation is preloaded into the prompt before the call; other augmentation (such as tool use or just-in-time retrieval) happens during the interaction when the model requests it. A single augmented LLM call may reference multiple tools or documents, but it's treated as one round of interaction.
 
 **Workflow**: A system in which LLMs and tools are orchestrated through explicitly defined code paths. A workflow specifies: "First call the model with this prompt, then based on its response, call these tools in this order, then call the model again with the results." The structure is predetermined by engineering; the LLM fills in tactical details within that structure. Workflows are often implemented as state machines or step functions.
 
@@ -618,7 +618,7 @@ This approach offers clear benefits:
 * **Clearer decision trails.** When something goes wrong, you can see why the agent made its choice.
 * **Smarter recovery.** An agent that planned upfront can adapt its plan when obstacles appear, rather than blindly retrying the same failing approach.
 
-The tradeoff is real: planning increases latency and token cost. An agent that thinks through a strategy might spend significantly more tokens than one that acts immediately (in practice, increases of 50% or more are common, depending on task complexity). For real-time systems or token-constrained environments, this overhead matters.
+The tradeoff is real: planning increases latency and token cost. An agent that thinks through a strategy might spend significantly more tokens than one that acts immediately (illustrative increases of 50% or more are possible, depending on task complexity). For real-time systems or token-constrained environments, this overhead matters.
 
 In practice, modern language models have become good enough that explicit planning is less critical for straightforward tasks. A well-designed system prompt and clear tool descriptions often suffice. But for complex multi-step work—research, code generation with many dependencies, strategic problem-solving—explicit planning steps still deliver substantial value.
 
@@ -709,7 +709,7 @@ Agents come in many flavors. Academic computer science has one taxonomy—based 
 
 ## 5.1 Two Ways to Classify Agents
 
-The **academic taxonomy** describes agent architectures: the internal decision-making mechanisms. A simple reflex agent responds immediately to stimulus. A model-based agent maintains a mental model of the world. A goal-based agent plans to reach objectives. A utility-based agent weighs tradeoffs. A learning agent improves from experience. This taxonomy comes from Russell & Norvig's classical work in AI and remains the foundation of CS education.
+The **academic taxonomy** describes agent architectures: the internal decision-making mechanisms. A simple reflex agent responds immediately to stimulus. A model-based agent maintains a mental model of the world. A goal-based agent plans to reach objectives. A utility-based agent weighs tradeoffs. A learning agent improves from experience. This taxonomy comes from Russell & Norvig's *Artificial Intelligence: A Modern Approach* (see Appendix C) and remains the foundation of CS education.
 
 The **practical taxonomy** describes agent roles: what job an agent does in a system. An Assistant handles repetitive interactions. An Analyst synthesizes information and surfaces insights. A Tasker executes multi-step work. An Orchestrator coordinates other agents. A Guardian validates and enforces compliance. This taxonomy emerged from how organizations actually deploy agents in production, independent of internal architecture.
 
@@ -1198,7 +1198,7 @@ MCP is the infrastructure layer that makes agent tool design practical at scale.
 
 The Model Context Protocol is an open standard for connecting language models to tools and data sources. It defines how an agent requests tool information, how it invokes tools, and how it receives results. Critically, it is implementation-agnostic: any MCP-compatible client can communicate with any MCP server, though the degree of interoperability depends on transport, authentication, and optional feature support in each implementation.
 
-MCP has become one of the most widely adopted open protocols in this category for several reasons. It is open, now governed by the Linux Foundation's Agentic AI Foundation, and not locked into a single vendor. Major AI companies have integrated it in various ways: Anthropic built it into Claude, OpenAI has integrated it with their platform, and Google and Microsoft have published support. This broad adoption has created a large ecosystem of compatible tools and servers.
+MCP has become one of the most widely adopted open protocols in this category for several reasons. It is open, now governed by the Linux Foundation's Agentic AI Foundation, and not locked into a single vendor. Multiple major AI platforms have integrated it in various ways, including Anthropic (Claude), and others have announced support or compatibility. This broad adoption has created a large ecosystem of compatible tools and servers.
 
 It is simple to implement. The protocol is human-readable, the SDKs are well-documented, and a basic MCP server can be built in hours. Language agnostic—SDKs exist for Python, TypeScript, Go, and others. This simplicity created the ecosystem.
 
@@ -1301,13 +1301,9 @@ The practical implication is architectural. A stdio server is trivial to set up 
 
 ### 7.5.6 Authentication and Testing MCP Servers
 
-**Authentication.** MCP servers that handle sensitive data or perform privileged operations need authentication. The MCP specification supports multiple mechanisms; the right choice depends on your deployment model.
+**Authentication.** MCP servers that handle sensitive data or perform privileged operations need authentication. In MCP deployments, teams commonly use several auth patterns. MCP's standardized authorization flow centers on web-based authorization (OAuth 2.0) for HTTP transports, allowing users to grant the agent scoped access to their accounts—similar to how you authorize a third-party app to access your GitHub or Google account.
 
-For user-facing servers where end users authenticate through their browser, OAuth 2.0 is the standard approach. The MCP authorization flow allows users to grant the agent scoped access to their accounts—similar to how you authorize a third-party app to access your GitHub or Google account.
-
-For internal services where agents connect to your own infrastructure, API keys or service tokens provide simpler authentication. The agent's configuration includes credentials that the MCP client passes with each request.
-
-For service-to-service communication in high-security environments, mutual TLS (mTLS) verifies both the client and server identity at the transport layer. This is appropriate for production deployments where MCP servers handle financial data, PII, or other sensitive operations.
+Beyond the standardized flow, common deployment patterns include API keys or service tokens for internal services (simpler, but not part of the MCP specification itself), and mutual TLS (mTLS) for service-to-service communication in high-security environments. These are implementation choices depending on your deployment model, not MCP protocol requirements.
 
 The principle is the same as any API: match the authentication mechanism to your trust model and deployment context. Don't over-engineer authentication for an internal development tool, and don't under-engineer it for a server that handles customer data.
 
@@ -1328,7 +1324,7 @@ Test your MCP server against the specific clients your users will run (as noted 
 
 ## Conclusion
 
-Effective agent tools are a new craft. They require thinking about your API not from the perspective of a developer reading documentation, but from the perspective of a model reading a brief description and making decisions under uncertainty. The principles are learnable, the practices are proven, and the infrastructure through MCP is now mature.
+Effective agent tools are a new craft. They require thinking about your API not from the perspective of a developer reading documentation, but from the perspective of a model reading a brief description and making decisions under uncertainty. The principles are learnable, the practices are proven, and the infrastructure through MCP is mature enough for many production use cases, with interoperability caveats noted in Section 7.5.2.
 
 The most important principle is that tools are not APIs. They are interfaces to an agent's capabilities. Every decision—what to consolidate, what to return, how to name things, what error messages to provide—should be made with the agent as the user. When tool design follows agent user experience principles rather than API design principles, remarkable capabilities emerge.
 
@@ -1456,7 +1452,7 @@ sequenceDiagram
 * **Streaming:** Real-time event delivery via Server-Sent Events (SSE). Best for tasks where the client needs live updates.
 * **Push notifications:** Asynchronous updates via webhooks. Best for long-running tasks where the client can disconnect.
 
-A2A's security model supports OAuth 2.0, OpenID Connect, and mTLS. The protocol also supports gRPC and Agent Card signatures for enterprise-grade authentication.
+A2A's security model includes support for OAuth 2.0, OpenID Connect, and mTLS for authentication. Protocol bindings include HTTP/JSON-RPC and gRPC for transport. Agent Card signatures provide verification and integrity, helping client agents confirm a server agent's identity before delegating work.
 
 ### 8.3.2 ACP (Agent Communication Protocol)
 
@@ -2033,7 +2029,7 @@ Audit trails become essential for compliance and debugging. These workflows typi
 
 Consider a simple agent that routes customer inquiries to different departments. Run it ten times with the same input, and you might see nine correct routes and one that goes to the wrong team. Manual testing would catch neither the failure nor its frequency. An evaluation framework would catch both immediately and quantify the problem: a 10% failure rate is unacceptable for production use.
 
-Evaluations serve three critical purposes. First, they measure progress objectively. Without numbers, you cannot distinguish between a genuine improvement and a change that only feels better. Second, they detect regressions before they reach users. When you modify a prompt or swap a model, you need to know immediately if something broke. Third, they justify design decisions to stakeholders. "We chose Claude Sonnet over GPT-4o because it achieved 94% task completion at half the latency" is far more persuasive than "it felt faster."
+Evaluations serve three critical purposes. First, they measure progress objectively. Without numbers, you cannot distinguish between a genuine improvement and a change that only feels better. Second, they detect regressions before they reach users. When you modify a prompt or swap a model, you need to know immediately if something broke. Third, they justify design decisions to stakeholders. "We chose Model A over Model B because it achieved 94% task completion at half the latency" (hypothetical example) is far more persuasive than "it felt faster."
 
 The teams that invest in evaluations early iterate faster than those that don't. Setup time is real, but it compounds over time. After the first month, running evaluations takes seconds instead of hours. By month three, your eval infrastructure is saving you days of debugging.
 
@@ -2256,6 +2252,10 @@ These five Anthropic publications form the foundation of this guide:
 * [Claude Agent SDK documentation](https://docs.anthropic.com/en/docs/agents-and-tools/agent-sdk) — Official SDK reference and quickstart guides. (Anthropic-specific)
 * [Claude Cookbooks — Agent Patterns](https://github.com/anthropics/claude-cookbooks/tree/main/patterns/agents) — Example code for agent architectures. (Anthropic-specific)
 * [Context windows — Claude Developer Platform](https://docs.anthropic.com/en/docs/build-with-claude/context-windows) — Context window management guidance. (Anthropic-specific)
+
+### Academic References
+
+* Stuart Russell and Peter Norvig, *Artificial Intelligence: A Modern Approach* (4th edition, 2020) — The standard reference for the agent taxonomy in Section 5.2 (simple reflex, model-based, goal-based, utility-based, learning agents).
 
 ### Benchmarks
 
