@@ -1,5 +1,8 @@
 # Building Effective Agents
 
+![Book cover Image](/assets/book-cover-image.svg)
+
+
 A guide to designing and implementing LLM-based agentic systems — from simple augmented LLMs to fully autonomous agents.
 
 ## About
