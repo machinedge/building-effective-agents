@@ -2,16 +2,18 @@
 
 ### March 2026 Edition
 
-*Anthropic published the article, [Building effective agents](https://www.anthropic.com/research/building-effective-agents), in December 2024. This guide synthesizes the original article with subsequent publications on context engineering, tool design, and long-running agents, updated for the current state of the art.*
+*Anthropic published the article, [Building effective agents](https://www.anthropic.com/engineering/building-effective-agents), in December 2024. This guide synthesizes the original article with subsequent publications on context engineering, tool design, and long-running agents, updated for the current state of the art.*
 
-**Author:** Claude Opus 4.6 (Anthropic) | **Editorial Review:** ChatGPT 5.4 Thinking (OpenAI), Gemini 3 Thinking (Google)
+**Author:** Claude Opus 4.6 (Anthropic) | **Editorial Review:** ChatGPT 5.4 Thinking (OpenAI), Gemini 3 Deep Think (Google)
 
 **Curated By**: MachinEdge, LLC - info@machinedge.io | [machinedge.io](https://www.machinedge.io)
 
 
 ---
 
-> **A note on sources and methodology.** This guide draws on four published Anthropic engineering articles (cited in Appendix C), publicly available documentation for the Model Context Protocol, and the authors' synthesis of current industry practice. Where we cite specific numbers (ecosystem statistics, adoption figures), we attribute them to their source. Where we offer design guidance or heuristics, we frame them as practical recommendations based on vendor experience and community patterns, not as independently verified research findings. LLMs were used in the drafting and review of this document; all factual claims should be verified against primary sources before being cited in other work.
+> **A note on sources and methodology.** This guide draws on five published Anthropic engineering articles and the Dec. 2024 *Building effective agents* article (cited in Appendix C), publicly available documentation for the Model Context Protocol, Claude Agent SDK documentation, and the authors' synthesis of current industry practice. Where we cite specific numbers (ecosystem statistics, adoption figures), we attribute them to their source. Where we offer design guidance or heuristics, we frame them as practical recommendations based on vendor experience and community patterns, not as independently verified research findings. LLMs were used in the drafting and review of this document; all factual claims should be verified against primary sources before being cited in other work.
+>
+> **Last fact-checked:** March 2026. Model capabilities, MCP ecosystem details, and benchmark results evolve rapidly. Readers should verify time-sensitive claims against current primary sources. This guide uses Anthropic-specific terminology (e.g., Extended Thinking, Claude Agent SDK, Tool Search) alongside vendor-neutral concepts; where a feature is provider-specific, we note it in context.
 
 
 ---
@@ -113,10 +115,10 @@ We assume you're reading this because you've recognized that an LLM could improv
 The original "Building Effective Agents" article published by Anthropic in December 2024 established foundational principles that remain valid today. But the landscape has shifted meaningfully in the intervening months, and understanding what's new helps contextualize the guidance in this update.
 
 
-* **Model capabilities have expanded dramatically.** Recent frontier models—including Claude's Opus 4.6 and Sonnet 4.6 series—bring substantial improvements in reasoning, planning, and tool use compared to their predecessors. Extended thinking—the ability for models to reason through complex problems before responding—has moved from research concept to practical feature, and native reasoning tools now allow models to plan explicitly as part of the agent loop. Tool use itself has become more reliable and nuanced; models now handle edge cases, nested tool calls, and error recovery far more gracefully than they did a year ago. These improvements directly impact how you should design agentic systems; in many settings, you can delegate more complex decision-making to the model, provided you add appropriate evaluation and guardrails.
+* **Model capabilities have expanded dramatically.** Recent frontier models—including Claude's Opus 4.6 and Sonnet 4.6 series—bring substantial improvements in reasoning, planning, and tool use compared to their predecessors. Extended thinking (a feature in Claude and similar models that allows the model to reason through complex problems before responding) has moved from research concept to practical feature, and native reasoning tools (model-specific planning capabilities exposed through the API) now allow models to plan explicitly as part of the agent loop. Tool use itself has become more reliable and nuanced; models now handle edge cases, nested tool calls, and error recovery far more gracefully than they did a year ago. These improvements directly impact how you should design agentic systems; in many settings, you can delegate more complex decision-making to the model, provided you add appropriate evaluation and guardrails.
 
 
-* **The Model Context Protocol (MCP) has emerged as a widely adopted open standard for model-tool integration.** What was initially Anthropic's initiative has been supported or integrated in various ways by OpenAI, Google, and Microsoft, and in December 2025 the specification was [donated to the Linux Foundation's Agentic AI Foundation](https://www.anthropic.com/news/donating-the-model-context-protocol-and-establishing-of-the-agentic-ai-foundation). This convergence matters because it means tool and data integration is no longer a domain where every team reinvents the wheel. MCP allows you to write tool connectors once and use them across different LLM platforms and applications. We'll cover MCP extensively in this guide because it's now the default choice for agent-tool integration rather than one option among many.
+* **The Model Context Protocol (MCP) has emerged as a widely adopted open standard for model-tool integration.** What was initially Anthropic's initiative has been supported or integrated in various ways by OpenAI, Google, and Microsoft, and in December 2025 the specification was [donated to the Linux Foundation's Agentic AI Foundation](https://www.anthropic.com/news/donating-the-model-context-protocol-and-establishing-of-the-agentic-ai-foundation). This convergence matters because it means tool and data integration is no longer a domain where every team reinvents the wheel. MCP improves portability of tool connectors across compliant clients and servers, though feature and authentication support still vary by implementation. We'll cover MCP extensively in this guide because it has become one of the leading open standards for agent-tool integration.
 
 
 * **Context engineering has emerged as a discipline.** Beyond prompt engineering, teams are now recognizing that what information an LLM sees, and when it sees it, is a distinct design problem. The field of retrieval-augmented generation (RAG) has matured; vector databases and semantic search are now standard infrastructure for many teams. Longer context windows are now common across leading model platforms. The practice of instrumenting what context reaches the model—whether it's recent conversation history, relevant documents, current system state, or examples of correct behavior—is now recognized as a skill separate from crafting the prompt itself.
@@ -175,7 +177,7 @@ Before diving into patterns and architectures, we need shared vocabulary. These 
 
 **Agent-Computer Interface (ACI)**: The tools and interfaces through which an agent interacts with external systems. Just as a user interface (UI) defines how humans interact with computers, an ACI defines how agents interact with them. Well-designed tools reduce ambiguity and support the agent's ability to understand what went wrong and recover. Poor tool design forces the agent to guess at semantics.
 
-**Model Context Protocol (MCP)**: An open standard for connecting LLMs to external tools and data sources. MCP is transport-agnostic and language-agnostic; it allows you to define tools, data resources, and environment interactions in a way that can be consumed by any MCP-compatible client. Rather than implementing tool connectors separately for each LLM platform or application, MCP lets you implement them once and reuse them widely.
+**Model Context Protocol (MCP)**: An open standard for connecting LLMs to external tools and data sources. MCP is transport-agnostic and language-agnostic; it allows you to define tools, data resources, and environment interactions in a way that can be consumed by any MCP-compatible client. MCP improves portability across compliant clients and servers, though feature and authentication support still vary by implementation.
 
 ---
 
@@ -242,7 +244,7 @@ Tools represent the second external system in the augmented LLM pattern, and the
 
 When an LLM has access to tools, it can call APIs, execute code, query databases, send messages, trigger workflows, and interact with external systems. This capability transforms the LLM from a pure reasoning engine into an agent that can observe the world, act on it, and adapt based on the results. Tool use has become dramatically more reliable with current-generation models. Where early experiments with tool use were fragile and required careful prompt engineering, modern LLMs consistently and accurately call tools when appropriate and handle tool responses gracefully.
 
-The quality of tool definitions has an enormous impact on how effectively the model uses them. A well-designed tool description—clear intent, accurate parameters, honest specification of what the tool does and doesn't do—correlates strongly with successful tool invocations. A poorly designed tool description leads to misuse, wasted invocations, and agent failures. We will return to tool design in detail in Chapter 6, but the principle is worth stating here: the Agent-Computer Interface (ACI) is as important to agent performance as user interface design is to human performance.
+The quality of tool definitions has an enormous impact on how effectively the model uses them. A well-designed tool description—clear intent, accurate parameters, honest specification of what the tool does and doesn't do—correlates strongly with successful tool invocations. A poorly designed tool description leads to misuse, wasted invocations, and agent failures. We will return to tool design in detail in Chapter 7, but the principle is worth stating here: the Agent-Computer Interface (ACI) is as important to agent performance as user interface design is to human performance.
 
 Recent standardization through the Model Context Protocol (MCP) has made tool definition and integration more consistent. Rather than each tool having its own connection method and specification, MCP provides a standard way to define and compose tools into agent environments. This standardization matters for engineering reliability.
 
@@ -723,7 +725,7 @@ graph LR
     D -->|Adds| E["Learning Agent<br/>+ Improvement from Experience"]
 ```
 
-In 2026, most LLM-based agents are goal-based or utility-based by default. The language model itself is a learning agent (trained on vast data). The systems built on top are typically goal-based: the model receives a task, uses available tools, and reasons toward completion. Utility-based agents are rarer and more complex—you need explicit logic to weight competing objectives, not just the model's implicit preferences.
+In 2026, most LLM-based agents are best described as goal-based or utility-based at runtime. The underlying model was trained via learning (on vast data), but that is a separate question from the deployed agent's architecture. The systems built on top are typically goal-based: the model receives a task, uses available tools, and reasons toward completion. Utility-based agents are rarer and more complex—you need explicit logic to weight competing objectives, not just the model's implicit preferences.
 
 > 🔑
 > The architectural taxonomy describes the agent's **reasoning mechanism**. It's most useful when making technical design decisions: what kind of state tracking do you need? Do you need explicit planning? Will tradeoff evaluation require dedicated logic?
@@ -731,6 +733,9 @@ In 2026, most LLM-based agents are goal-based or utility-based by default. The l
 ## 5.3 The Practitioner's Taxonomy: Five Agent Roles
 
 In production, teams rarely think in terms of architectures. They think in terms of problems: "We need something that handles repetitive customer interactions." "We need something that researches competitive intelligence." "We need something that monitors compliance." This section introduces five practical roles that cover the vast majority of deployed agent systems.
+
+> ℹ️
+> **Note on taxonomy.** The five-role taxonomy presented below is a practitioner-oriented synthesis used in this guide, not an established industry-standard classification. The academic taxonomy in Section 5.2 is the standard one from Russell & Norvig. This practitioner taxonomy is our attempt to organize how agents are actually deployed in production.
 
 ### 5.3.1 The Assistant
 
@@ -961,7 +966,7 @@ In fact, equip the agent to iterate. Rather than a single search call, enable mu
 
 A real phenomenon in long conversations is what we call "context rot" (also referred to in academic literature as "attention decay" or "middle-of-window recall failure")—the tendency for earlier information to receive less of the model's attention as the context window grows. This isn't a quirk of a specific architecture; it's a fundamental property of attention mechanisms. The model attends most strongly to recent content and to the very beginning of the context (where system instructions live), and proportionally less to the middle and older sections.
 
-This creates a problem for long-horizon tasks. Important context from an hour ago gets deprioritized. The model might forget earlier decisions or constraints. It might re-ask for information it already has. Attention literally rots.
+This creates a problem for long-horizon tasks. Important context from an hour ago gets deprioritized. The model might forget earlier decisions or constraints. It might re-ask for information it already has. Long-context recall degrades.
 
 Mitigation strategies exist. The simplest is periodic refresh—take critical information and re-inject it at the end of the context window (or early in the next one), forcing the model to re-attend to it. Include key constraints, important past decisions, and current state explicitly as the task progresses.
 
@@ -990,7 +995,7 @@ The summary should be written with a specific purpose: to let the model (which i
 
 Implementation typically involves an automated process that monitors context usage and triggers compaction when a threshold is reached. The old context and summary are preserved for reference but not carried forward.
 
-The psychological effect is striking: after compaction, the model's reasoning becomes noticeably more focused. Attention rot is reset. The model isn't distracted by the sprawl of earlier reasoning; it's oriented toward the current state and next actions.
+The practical effect is notable: after compaction, the model's reasoning becomes noticeably more focused. Attention rot is reset. The model isn't distracted by the sprawl of earlier reasoning; it's oriented toward the current state and next actions.
 
 > ℹ️
 > **Compaction resets attention.** After summarizing and reinitializing context, model reasoning becomes noticeably more focused and coherent. Attention rot is reset.
@@ -1081,11 +1086,11 @@ A common instinct for developers is to create many small, composable functions. 
 When an agent has access to many tools, it faces a selection problem. The agent must determine which tool is appropriate, based on the user's request and brief tool descriptions. With five related tools, this becomes ambiguous. With fifty, it becomes a guessing game. Tool proliferation creates confusion at the point where clarity is most needed.
 
 > ⚠️
-> **Tool proliferation confuses agents.** More tools create selection problems. With many tools, agents must guess which to use. Consolidate to 10–20 primary tools with clear modes and consistent naming.
+> **Tool proliferation confuses agents.** More tools create selection problems. With many tools, agents must guess which to use. Consolidate to a manageable set of primary tools with clear modes and consistent naming.
 
 The better approach is to consolidate related operations into fewer tools with clear modes. Instead of creating separate tools for `list_users`, `get_user`, `create_user`, `update_user`, and `delete_user`, consolidate these into a single `manage_users` tool that accepts an `action` parameter specifying the operation. The agent no longer faces the decision of which tool to use—it faces the simpler decision of what action to perform within the tool.
 
-This does not mean consolidating everything into a few monolithic tools. Each tool should still have a clear, distinct purpose. The goal is a middle ground: consolidate enough to eliminate decision confusion, but no more. In practice, well-designed agent systems typically expose 10-20 primary tools, with MCP allowing dynamic selection from a larger catalog when needed.
+This does not mean consolidating everything into a few monolithic tools. Each tool should still have a clear, distinct purpose. The goal is a middle ground: consolidate enough to eliminate decision confusion, but no more. In practice, we recommend consolidating to a manageable set of primary tools, with MCP allowing dynamic selection from a larger catalog when needed.
 
 ### 7.2.2 Returning Meaningful Context
 
@@ -1129,7 +1134,7 @@ When possible, provide alternative approaches. "Cannot delete user with ID 999 b
 
 ### 7.2.5 Namespacing for Large Tool Sets
 
-When an agent has access to many tools—a typical MCP server might expose 20 or 30—organization becomes critical. Clear naming prevents the agent from calling the wrong tool.
+When an agent has access to many tools—an MCP server may expose dozens—organization becomes critical. Clear naming prevents the agent from calling the wrong tool.
 
 Use consistent naming conventions. For a GitHub integration, use `github_create_issue`, `github_list_repos`, `github_add_collaborator`, and so on. For Slack, use `slack_send_message`, `slack_list_channels`, `slack_create_channel`. The consistent prefix tells the agent both what system a tool controls and what related tools exist.
 
@@ -1175,9 +1180,9 @@ The insight is simple: the model understands what confused it. Rather than guess
 
 MCP is the infrastructure layer that makes agent tool design practical at scale.
 
-### 7.5.1 What MCP Is and Why It Won
+### 7.5.1 What MCP Is and Why It Has Gained Broad Adoption
 
-The Model Context Protocol is an open standard for connecting language models to tools and data sources. It defines how an agent requests tool information, how it invokes tools, and how it receives results. Critically, it is implementation-agnostic: any MCP-compatible client (Claude, or any other agent platform) can use any MCP server (GitHub, Slack, Notion, or custom tools).
+The Model Context Protocol is an open standard for connecting language models to tools and data sources. It defines how an agent requests tool information, how it invokes tools, and how it receives results. Critically, it is implementation-agnostic: any MCP-compatible client can communicate with any MCP server, though the degree of interoperability depends on transport, authentication, and optional feature support in each implementation.
 
 MCP has become the most prominent open protocol in this category for several reasons. It is open, now governed by the Linux Foundation's Agentic AI Foundation, and not locked into a single vendor. Major AI companies have integrated it in various ways: Anthropic built it into Claude, OpenAI has integrated it with their platform, and Google and Microsoft have published support. This broad adoption has created a large ecosystem of compatible tools and servers.
 
@@ -1189,9 +1194,12 @@ Ecosystem counts cited below come from MCP project and Linux Foundation material
 
 The MCP ecosystem has grown rapidly since the protocol's launch. The MCP project and Linux Foundation materials cite 10,000+ active or published servers, offering integrations with major software platforms. Official SDKs for Python, TypeScript, and other languages provide the infrastructure needed to build servers and clients.
 
-The MCP project reports 97 million monthly SDK downloads across Python and TypeScript, indicating adoption across both enterprise and individual projects. Claude offers a connectors directory with pre-built integrations, reducing the need to build from scratch for common use cases. Tool Search enables efficient selection from large tool catalogs, addressing the tool discovery problem at scale.
+The MCP project reports 97 million monthly SDK downloads across Python and TypeScript, indicating adoption across both enterprise and individual projects. Claude (Anthropic-specific) offers a connectors directory with pre-built integrations, reducing the need to build from scratch for common use cases. Tool Search (a Claude-specific feature) enables efficient selection from large tool catalogs, addressing the tool discovery problem at scale.
 
 For teams using Claude, this means access to a broad tool ecosystem. Instead of building custom integrations, teams can often find and configure existing integrations in minutes.
+
+> ⚠️
+> **Interoperability caveat.** While MCP defines a common protocol, practical interoperability still varies. Authentication mechanisms, transport options (stdio vs. HTTP/SSE), optional protocol features (like sampling or roots), and consent UX differ across client and server implementations. "Write once, run anywhere" is an aspiration, not a guarantee—test your MCP servers against the specific clients your users will be running.
 
 ### 7.5.3 Building MCP Servers
 
@@ -1199,7 +1207,7 @@ Building an MCP server is straightforward. A server exposes three primary abstra
 
 The protocol handles the communication layer. You implement the logic: what does each tool do, what data do resources expose, what instruction templates are useful. The SDK handles serialization, error management, and protocol compliance.
 
-Key decisions: what tools to expose and at what granularity (apply the principles from 6.2), how to handle authentication, what error messages to return. For implementation details, the official MCP documentation is the authority.
+Key decisions: what tools to expose and at what granularity (apply the principles from Section 7.2), how to handle authentication, what error messages to return. For implementation details, the official MCP documentation is the authority.
 
 A well-designed MCP server follows the same principles as any well-designed tool: clear, focused tools; meaningful responses; helpful error messages; token-efficient results. The only difference is infrastructure—MCP handles the protocol, you handle the substance.
 
@@ -1354,7 +1362,7 @@ This structure provides several benefits:
 
 Git works because it's a well-understood, ubiquitous tool. The agent doesn't need special infrastructure—just discipline about committing frequently with clear messages.
 
-**A caution on state integrity:** If an agent has write access to its own progress-tracking files, it can—intentionally or through hallucination—falsely mark features as complete or commit inaccurate status updates. This is the "premature victory" failure mode from Section 7.2.2 expressed as a state management problem. Mitigations include making the progress tracker an **append-only log** (the agent can add entries but not modify or delete previous ones), having a separate **supervisor process or model** that independently verifies claimed completions against actual test results, or requiring that status changes be gated by passing automated tests rather than by the agent's own assertion. Trust the tests, not the agent's self-assessment.
+**A caution on state integrity:** If an agent has write access to its own progress-tracking files, it can—intentionally or through hallucination—falsely mark features as complete or commit inaccurate status updates. This is the "premature victory" failure mode from Section 8.2.2 expressed as a state management problem. Mitigations include making the progress tracker an **append-only log** (the agent can add entries but not modify or delete previous ones), having a separate **supervisor process or model** that independently verifies claimed completions against actual test results, or requiring that status changes be gated by passing automated tests rather than by the agent's own assertion. Trust the tests, not the agent's self-assessment.
 
 ## 8.5 End-to-End Verification: The Difference Between Testing and Working
 
@@ -1369,7 +1377,7 @@ End-to-end verification means using the feature the way a human would. For web a
 
 Explicit prompting to use browser automation dramatically improved feature verification in Anthropic's experiments. When agents were instructed to "verify this feature works by actually using it in the browser," they caught problems that isolated tests missed.
 
-Browser-use agents—agents that interact with applications through a browser interface, clicking buttons, filling forms, and reading rendered pages—have become a significant pattern in their own right beyond just verification. They represent one of the most tangible demonstrations of agentic capability: an agent that can navigate a web application the way a human would. The pattern is applicable to testing, quality assurance, data extraction from web applications, and any task where the "real" interface is a browser rather than an API.
+Browser-use agents—agents that interact with applications through a browser interface (e.g., Anthropic's computer use, or open-source frameworks like Playwright-based agents), clicking buttons, filling forms, and reading rendered pages—have become a significant pattern in their own right beyond just verification. They represent one of the most tangible demonstrations of agentic capability: an agent that can navigate a web application the way a human would. The pattern is applicable to testing, quality assurance, data extraction from web applications, and any task where the "real" interface is a browser rather than an API.
 
 The verification should be part of the implementation workflow, not a separate step delegated to humans. The worker agent builds the feature, runs the tests, then uses the feature. If it doesn't work, the agent fixes it before moving on. This creates tight feedback loops and prevents broken features from accumulating.
 
@@ -1483,7 +1491,7 @@ Separate read-only tools from write and action tools. Most agents need far fewer
 
 MCP makes least privilege practical at scale. Rather than giving every agent access to every tool server, compose tool sets per-agent. A customer support agent gets the support-ticket MCP server and the knowledge-base MCP server, but not the billing-modification MCP server. A research agent gets the web-search MCP server but not the internal-database MCP server. This composition is architectural—it is decided at deployment time, not at runtime.
 
-**A note on MCP-specific risks:** The convenience of remote MCP tool servers introduces its own attack surface. Research into tool poisoning (sometimes called "MCPTox") has demonstrated that malicious or compromised tool servers can embed hidden instructions in tool descriptions or responses that manipulate agent behavior—with reported success rates as high as 84% in unmonitored environments. Mitigations include: vetting and auditing MCP servers before connecting them, reviewing tool descriptions for hidden instructions, monitoring tool responses for anomalous content, and applying the same input/output filtering to MCP tool results as you would to any other untrusted data source. The principle is straightforward: a remote tool server is an external dependency with the same trust profile as any third-party API. Treat it accordingly.
+**A note on MCP-specific risks:** The convenience of remote MCP tool servers introduces its own attack surface. Research into tool poisoning (sometimes called "MCPTox") has demonstrated that malicious or compromised tool servers can embed hidden instructions in tool descriptions or responses that manipulate agent behavior at high rates in unmonitored environments. Mitigations include: vetting and auditing MCP servers before connecting them, reviewing tool descriptions for hidden instructions, monitoring tool responses for anomalous content, and applying the same input/output filtering to MCP tool results as you would to any other untrusted data source. The principle is straightforward: a remote tool server is an external dependency with the same trust profile as any third-party API. Treat it accordingly.
 
 > ⚠️
 > **MCP servers are attack surfaces.** Malicious or compromised MCP servers can embed hidden instructions in tool descriptions and responses. Vet servers before connecting, pin versions, and apply input filtering to MCP results.
@@ -1568,20 +1576,23 @@ Third, human escalation paths are essential. No matter how capable the agent, ce
 
 ## 10.2 Coding Agents
 
+> ⚠️
+> **Benchmarks vs. production.** When evaluating coding agent claims, distinguish between three different measures: *benchmark performance* (e.g., SWE-bench scores under controlled conditions), *eval-harness performance* (scores in a team's internal evaluation suite), and *production autonomy* (the rate at which agents resolve real issues end-to-end without human intervention). These measure different things. High benchmark scores do not automatically translate to production autonomy; domain complexity, tooling quality, and human-in-the-loop design all affect real-world outcomes.
+
 Coding agents represent the fastest-growing category of agent applications. Tools like Claude Code, Cursor, and specialized GitHub agents demonstrate that agents can successfully navigate complex domains requiring extensive reasoning and tool use. The pattern here is distinct from customer support: instead of classification and routing, these agents run a full agentic loop with extensive tool access.
 
 The architecture places significant emphasis on a system prompt that establishes coding guidelines, preferred patterns, and constraints. The agent operates in a loop where it reads code, reasons about changes, writes code, runs tests, reads test output, and iterates. Tools include file reading and writing, terminal execution, search across codebases, and documentation lookup. Verification happens through test execution—the agent can definitively check whether its changes work.
 
-This pattern has proven transformative. Agents that run tests as part of their workflow produce dramatically better code than those that don't. This isn't just about catching bugs; test execution gives the agent immediate feedback that drives better reasoning. When an agent writes code, sees a test failure, and must reason about why, it learns the problem space more effectively than static analysis allows.
+This pattern has proven highly effective. Agents that run tests as part of their workflow produce measurably better code than those that don't. This isn't just about catching bugs; test execution gives the agent immediate feedback that drives better reasoning. When an agent writes code, sees a test failure, and must reason about why, it learns the problem space more effectively than static analysis allows.
 
 > ℹ️
-> **Test execution improves reasoning.** Agents that run tests as part of their workflow produce dramatically better code. Immediate test feedback drives better reasoning than static analysis alone.
+> **Test execution improves reasoning.** Agents that run tests as part of their workflow produce measurably better code. Immediate test feedback drives better reasoning than static analysis alone.
 
 Sub-agent architectures work particularly well in this domain. One agent might plan the approach, decomposing a large task into smaller components. Another agent implements those components. A third agent reviews the code, checking for edge cases or improvements. This division of labor reduces cognitive load and allows each agent to specialize. Planning agents excel at high-level structure; implementation agents focus on correctness; review agents catch inconsistencies.
 
 Context management becomes critical with large codebases. An agent working on a million-line codebase cannot load everything into context. Instead, the agent must search strategically, reading only the files relevant to the current task. This requires the ability to reason about which files matter and to navigate the codebase intelligently. Agents that can do this—by reading dependency graphs, searching for function definitions, understanding module structure—scale effectively.
 
-The industry has begun measuring coding agent performance against benchmarks like SWE-bench, which evaluates agents on real GitHub issues. Performance has improved dramatically over the past year. Current agents can resolve a significant percentage of real-world issues autonomously, with human-in-the-loop workflows pushing success rates much higher. This trajectory suggests that coding agents will become standard tools within engineering teams.
+The industry has begun measuring coding agent performance against benchmarks like SWE-bench, which evaluates agents on real GitHub issues. Performance has improved substantially over the past year, as measured on benchmarks like SWE-bench (see Appendix C). Current agents can resolve a meaningful share of real-world issues autonomously, though production autonomy rates depend heavily on domain and tooling. Human-in-the-loop workflows push success rates considerably higher. This trajectory suggests that coding agents will become standard tools within engineering teams.
 
 ## 10.3 Research and Analysis Agents
 
@@ -1823,14 +1834,14 @@ Use this checklist when designing tools for your agents:
 
 ### Primary Sources
 
-These are the Anthropic engineering articles that form the foundation of this guide:
+These are the Anthropic publications that form the foundation of this guide:
 
-* [Building effective agents](https://www.anthropic.com/research/building-effective-agents) — December 2024. The foundational article on workflow and agent patterns.
+* [Building effective agents](https://www.anthropic.com/engineering/building-effective-agents) — December 2024. The foundational article on workflow and agent patterns.
 * [Effective context engineering for AI agents](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents) — September 2025. Context management strategies for agentic systems.
 * [Writing effective tools for agents — with agents](https://www.anthropic.com/engineering/writing-tools-for-agents) — 2025. Tool design principles and eval-driven development.
 * [Effective harnesses for long-running agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents) — November 2025. Multi-session agent patterns and failure modes.
-* [Demystifying evals for AI agents](https://www.anthropic.com/engineering) — 2025. Evaluation strategies for agentic systems.
-* [Building agents with the Claude Agent SDK](https://docs.anthropic.com/en/docs/agents-and-tools/claude-agent-sdk) — 2025. SDK patterns for agent loops, tool use, and multi-agent architectures.
+* [Demystifying evals for AI agents](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents) — January 2026. Evaluation strategies for agentic systems.
+* [Building agents with the Claude Agent SDK](https://docs.anthropic.com/en/docs/agents-and-tools/agent-sdk) — 2025. SDK patterns for agent loops, tool use, and multi-agent architectures.
 
 ### Protocol and Standards
 
@@ -1840,9 +1851,9 @@ These are the Anthropic engineering articles that form the foundation of this gu
 
 ### Implementation Resources
 
-* [Anthropic Cookbook — Agent Patterns](https://github.com/anthropics/anthropic-cookbook/tree/main/patterns/agents) — Practical code examples for agent architectures.
-* [Claude Agent SDK documentation](https://docs.anthropic.com/en/docs/agents-and-tools/claude-agent-sdk) — Official SDK reference and quickstart guides.
-* [Managing context on the Claude Developer Platform](https://docs.anthropic.com/en/docs/build-with-claude/context-windows) — Context window management guidance.
+* [Claude Cookbooks — Agent Patterns](https://github.com/anthropics/claude-cookbooks/tree/main/patterns/agents) — Practical code examples for agent architectures.
+* [Claude Agent SDK documentation](https://docs.anthropic.com/en/docs/agents-and-tools/agent-sdk) — Official SDK reference and quickstart guides.
+* [Context windows — Claude Developer Platform](https://docs.anthropic.com/en/docs/build-with-claude/context-windows) — Context window management guidance.
 
 ### Benchmarks
 
