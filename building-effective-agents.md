@@ -64,6 +64,9 @@
     * 7.3 [Prompt-Engineering Tool Descriptions](#73-prompt-engineering-tool-descriptions)
     * 7.4 [Eval-Driven Tool Development](#74-eval-driven-tool-development)
     * 7.5 [The Model Context Protocol (MCP)](#75-the-model-context-protocol-mcp)
+        * 7.5.4 [The Three MCP Primitives: Tools, Resources, and Prompts](#754-the-three-mcp-primitives-tools-resources-and-prompts)
+        * 7.5.5 [Transport: Choosing stdio, Streamable HTTP, or HTTP/SSE](#755-transport-choosing-stdio-streamable-http-or-httpsse)
+        * 7.5.6 [Authentication and Testing MCP Servers](#756-authentication-and-testing-mcp-servers)
  8. [Chapter 8: Multi-Agent Systems and Inter-Agent Communication](#chapter-8-multi-agent-systems-and-inter-agent-communication)
     * 8.1 [When Multi-Agent Systems Are Justified](#81-when-multi-agent-systems-are-justified)
     * 8.2 [The Inter-Agent Communication Problem](#82-the-inter-agent-communication-problem)
@@ -1217,7 +1220,7 @@ The protocol handles the communication layer. You implement the logic: what does
 
 Key decisions: what tools to expose and at what granularity (apply the principles from Section 7.2), how to handle authentication, what error messages to return. For implementation details, the official MCP documentation is the authority.
 
-A well-designed MCP server follows the same principles as any well-designed tool: clear, focused tools; meaningful responses; helpful error messages; token-efficient results. The only difference is infrastructure—MCP handles the protocol, you handle the substance.
+A well-designed MCP server follows the same principles as any well-designed tool: clear, focused tools; meaningful responses; helpful error messages; token-efficient results. The only difference is infrastructure—MCP handles the protocol, you handle the substance. The sections that follow cover the practical decisions in more depth: choosing the right primitive, selecting a transport, and testing your server.
 
 ```mermaid
 graph TB
@@ -1240,6 +1243,85 @@ graph TB
     Server3 -->|Notion API| Notion["Notion"]
     Custom -->|Internal API| Internal["Internal Systems"]
 ```
+
+### 7.5.4 The Three MCP Primitives: Tools, Resources, and Prompts
+
+Section 7.5.3 mentioned that MCP servers expose three abstractions. Understanding when to use each is a practical design decision that many teams get wrong, typically by implementing everything as tools when resources or prompts would be more appropriate.
+
+**Tools** are functions the agent can call to take actions or compute results. The agent decides when to invoke them based on its reasoning. Tools are best for operations with side effects (creating, updating, deleting records), computations that require parameters the agent constructs, and queries where the agent must formulate the request. Examples: `search_documents(query, filters)`, `create_issue(title, body)`, `run_query(sql)`.
+
+The key characteristic of tools is agent-initiated invocation. The agent reads the tool description, decides the tool is relevant to its current task, constructs the parameters, and calls it. This is the primitive most developers are familiar with, and the one covered extensively in Sections 7.1–7.4.
+
+**Resources** are data identified by URI that the agent can read. Unlike tools, resources are typically application-initiated—the client application or host decides which resources are available and may preload them into the agent's context. The agent can request a resource by URI, but the application controls what's discoverable.
+
+Resources are best for reference data the agent should have access to but doesn't need to actively search for: project configuration files, database schemas, documentation, style guides, or any structured data that provides context for the agent's work. Examples: `file:///project/README.md`, `db://users/schema`, `config://app/settings`.
+
+Think of resources as bookmarks. The application says "here are the reference materials available to you," and the agent reads them when relevant. This is fundamentally different from tools, where the agent actively searches or computes.
+
+**Prompts** are reusable instruction templates that the user or application can invoke to structure how the agent approaches a task. Unlike tools (which the agent calls) and resources (which provide data), prompts provide structured instructions that guide the agent's behavior for specific workflows.
+
+Prompts are best for standardized workflows that users trigger explicitly: "summarize this document following our standard format," "review this code against our style guide," "generate a test plan for this feature." The prompt template includes the structure, constraints, and output format; the user provides the specific inputs.
+
+> ℹ️
+> **Choosing the right primitive.** If the agent needs to *do* something or *fetch* specific data based on its reasoning → use a tool. If the agent needs reference material that the application provides → use a resource. If the user needs a reusable, structured workflow → use a prompt. Most MCP servers will primarily expose tools, with resources for reference data and prompts for common workflows.
+
+```mermaid
+graph LR
+    Agent["Agent"] -->|"Invokes<br/>(agent-initiated)"| Tools["Tools<br/>Actions & Queries"]
+    App["Application /<br/>Host"] -->|"Provides<br/>(app-initiated)"| Resources["Resources<br/>Reference Data"]
+    User["User"] -->|"Triggers<br/>(user-initiated)"| Prompts["Prompts<br/>Workflow Templates"]
+    Tools -->|"Results"| Agent
+    Resources -->|"Data"| Agent
+    Prompts -->|"Structured<br/>Instructions"| Agent
+```
+
+A common mistake is implementing everything as tools. If the agent needs to read a database schema, don't create a `get_schema()` tool—expose it as a resource. The agent gets the schema in its context without needing to reason about when to call a tool. If users frequently ask the agent to perform a standardized analysis, don't rely on the agent figuring out the right approach each time—create a prompt template that structures the workflow consistently.
+
+### 7.5.5 Transport: Choosing stdio, Streamable HTTP, or HTTP/SSE
+
+The MCP specification supports multiple transport mechanisms. The choice affects your deployment architecture, and picking the wrong one creates unnecessary complexity.
+
+**stdio** is the simplest transport. The agent and MCP server run on the same machine, communicating via standard input and output streams. There is zero network overhead, no HTTP server to configure, no ports to manage. The SDK handles the protocol; you implement the logic.
+
+stdio is ideal for local development tools, IDE integrations, and CLI agents where the server runs alongside the agent on the user's machine. Its limitation is exactly its strength: it's single-machine only. You cannot share a stdio server across multiple agents or deploy it as a remote service.
+
+**Streamable HTTP** is the modern transport for remote MCP servers. The client sends standard HTTP requests; the server responds with either a single JSON response or an HTTP stream for long-running operations. This transport supports both stateless interactions (simple tool calls) and stateful sessions (multi-step workflows), and is the recommended choice for production deployments where agents connect to remote servers.
+
+Streamable HTTP's advantage is simplicity at scale: it uses standard HTTP infrastructure (load balancers, API gateways, monitoring) without requiring persistent connections. Multiple agents can connect to the same server simultaneously.
+
+**HTTP/SSE (Server-Sent Events)** is the original remote transport. It uses HTTP POST for client-to-server messages and Server-Sent Events for server-to-client streaming. While still supported, Streamable HTTP is generally preferred for new implementations because it's simpler to deploy and doesn't require maintaining long-lived SSE connections.
+
+> ℹ️
+> **Transport decision guide.** Local agent on your machine → stdio. Remote or shared server → Streamable HTTP. Legacy integration with existing SSE infrastructure → HTTP/SSE. When in doubt, start with stdio for development and move to Streamable HTTP for production deployment.
+
+The practical implication is architectural. A stdio server is trivial to set up but can't be shared. A Streamable HTTP server requires standard web infrastructure but serves any number of agents. Most teams start with stdio during development (it's faster to iterate) and deploy behind Streamable HTTP for production.
+
+### 7.5.6 Authentication and Testing MCP Servers
+
+**Authentication.** MCP servers that handle sensitive data or perform privileged operations need authentication. The MCP specification supports multiple mechanisms; the right choice depends on your deployment model.
+
+For user-facing servers where end users authenticate through their browser, OAuth 2.0 is the standard approach. The MCP authorization flow allows users to grant the agent scoped access to their accounts—similar to how you authorize a third-party app to access your GitHub or Google account.
+
+For internal services where agents connect to your own infrastructure, API keys or service tokens provide simpler authentication. The agent's configuration includes credentials that the MCP client passes with each request.
+
+For service-to-service communication in high-security environments, mutual TLS (mTLS) verifies both the client and server identity at the transport layer. This is appropriate for production deployments where MCP servers handle financial data, PII, or other sensitive operations.
+
+The principle is the same as any API: match the authentication mechanism to your trust model and deployment context. Don't over-engineer authentication for an internal development tool, and don't under-engineer it for a server that handles customer data.
+
+**Testing.** The most important testing principle for MCP servers is the same one from Section 7.4 (eval-driven tool development): test with a real agent, not just unit tests.
+
+Unit tests verify that your server handles requests correctly at the protocol level—valid inputs produce expected outputs, errors return appropriate messages. These are necessary but insufficient.
+
+The real test is whether an agent can actually use your server effectively. Give an LLM access to your MCP server and observe: Does the agent select the right tool for the task? Does it construct valid parameters? Does it interpret the response correctly? Does it recover gracefully from errors? Does it know when *not* to use a tool?
+
+Common failure modes that only surface with agent testing:
+
+* **Ambiguous tool descriptions** cause the agent to select the wrong tool or avoid using a useful tool entirely.
+* **Missing parameter guidance** leads to malformed requests—the agent guesses at formats, date conventions, or enum values.
+* **Unhelpful error messages** prevent the agent from self-correcting. "Error: 400" is useless; "Invalid date format. Expected YYYY-MM-DD, received MM/DD/YYYY" enables recovery.
+* **Overly verbose responses** waste context window on information the agent doesn't need for its current task.
+
+Test your MCP server against the specific clients your users will run (as noted in the interoperability caveat in Section 7.5.2). A server that works perfectly with one client may behave differently with another due to differences in transport support, authentication handling, or optional feature support. For security testing considerations, see Section 10.5.
 
 ## Conclusion
 
