@@ -129,7 +129,7 @@ We assume you're reading this because you've recognized that an LLM could improv
 The original "Building Effective Agents" article published by Anthropic in December 2024 established foundational principles that remain valid today. But the landscape has shifted meaningfully in the intervening months, and understanding what's new helps contextualize the guidance in this update.
 
 
-* **Model capabilities have expanded dramatically.** Recent frontier models—including Claude's Opus 4.6 and Sonnet 4.6 series—bring substantial improvements in reasoning, planning, and tool use compared to their predecessors. Extended thinking (a feature in Claude and similar models that allows the model to reason through complex problems before responding) has moved from research concept to practical feature, and native reasoning tools (model-specific planning capabilities exposed through the API) now allow models to plan explicitly as part of the agent loop. Tool use itself has become more reliable and nuanced; models now handle edge cases, nested tool calls, and error recovery far more gracefully than they did a year ago. These improvements directly impact how you should design agentic systems; in many settings, you can delegate more complex decision-making to the model, provided you add appropriate evaluation and guardrails.
+* **Model capabilities have expanded significantly.** Recent frontier models—including Claude's Opus 4.6 and Sonnet 4.6 series—bring substantial improvements in reasoning, planning, and tool use compared to their predecessors. Extended thinking (a feature in Claude and similar models that allows the model to reason through complex problems before responding) has moved from research concept to practical feature, and native reasoning tools (model-specific planning capabilities exposed through the API) now allow models to plan explicitly as part of the agent loop. Tool use itself has become more reliable and nuanced; models now handle edge cases, nested tool calls, and error recovery far more gracefully than they did a year ago. These improvements directly impact how you should design agentic systems; in many settings, you can delegate more complex decision-making to the model, provided you add appropriate evaluation and guardrails.
 
 
 * **The Model Context Protocol (MCP) has emerged as a widely adopted open standard for model-tool integration** (supported or integrated by OpenAI, Google, Microsoft, and others; see Appendix C). What was initially Anthropic's initiative has been supported or integrated in various ways by OpenAI, Google, and Microsoft, and in December 2025 the specification was [donated to the Linux Foundation's Agentic AI Foundation](https://www.anthropic.com/news/donating-the-model-context-protocol-and-establishing-of-the-agentic-ai-foundation). This convergence matters because it means tool and data integration is no longer a domain where every team reinvents the wheel. MCP improves portability of tool connectors across compliant clients and servers, though feature and authentication support still vary by implementation. We'll cover MCP extensively in this guide because it has become one of the leading open standards for agent-tool integration.
@@ -610,7 +610,7 @@ This loop is the foundation of production agent systems: Claude Code, ChatGPT wi
 
 For simple tasks, an agent can jump straight into action: call a tool, see the result, and decide next steps. For complex problems, explicit planning pays dividends.
 
-Extended thinking and chain-of-thought prompting allow the model to reason through a problem before acting. A planning prompt might look like: "Before taking any action, outline your overall strategy. What are the main steps? What might go wrong? Then, execute step by step, checking your progress against the plan."
+Extended thinking and explicit planning steps allow the model to reason through a problem before acting. A planning prompt might look like: "Before taking any action, outline your overall strategy. What are the main steps? What might go wrong? Then, execute step by step, checking your progress against the plan."
 
 This approach offers clear benefits:
 
@@ -618,7 +618,7 @@ This approach offers clear benefits:
 * **Clearer decision trails.** When something goes wrong, you can see why the agent made its choice.
 * **Smarter recovery.** An agent that planned upfront can adapt its plan when obstacles appear, rather than blindly retrying the same failing approach.
 
-The tradeoff is real: planning increases latency and token cost. An agent that thinks through a strategy might spend 50% more tokens than one that acts immediately. For real-time systems or token-constrained environments, this overhead matters.
+The tradeoff is real: planning increases latency and token cost. An agent that thinks through a strategy might spend significantly more tokens than one that acts immediately (in practice, increases of 50% or more are common, depending on task complexity). For real-time systems or token-constrained environments, this overhead matters.
 
 In practice, modern language models have become good enough that explicit planning is less critical for straightforward tasks. A well-designed system prompt and clear tool descriptions often suffice. But for complex multi-step work—research, code generation with many dependencies, strategic problem-solving—explicit planning steps still deliver substantial value.
 
@@ -1407,7 +1407,7 @@ Several protocols have emerged for inter-agent communication. All complement MCP
 
 ### 8.3.1 A2A (Agent-to-Agent Protocol)
 
-A2A is an open protocol originally developed by Google, now governed by the Linux Foundation's Agentic AI Foundation (the same home as MCP). It has broad enterprise adoption, with over 150 supporting organizations including Atlassian, Salesforce, SAP, and ServiceNow.
+A2A is an open protocol originally developed by Google and now donated to the Linux Foundation. It has broad enterprise adoption, with over 150 supporting organizations including Atlassian, Salesforce, SAP, and ServiceNow.
 
 **Core concepts:**
 
@@ -1456,7 +1456,7 @@ sequenceDiagram
 * **Streaming:** Real-time event delivery via Server-Sent Events (SSE). Best for tasks where the client needs live updates.
 * **Push notifications:** Asynchronous updates via webhooks. Best for long-running tasks where the client can disconnect.
 
-A2A's security model supports OAuth 2.0, OpenID Connect, and mTLS. Version 0.3 added gRPC support and security card signing for enterprise-grade authentication.
+A2A's security model supports OAuth 2.0, OpenID Connect, and mTLS. The protocol also supports gRPC and Agent Card signatures for enterprise-grade authentication.
 
 ### 8.3.2 ACP (Agent Communication Protocol)
 
@@ -1483,7 +1483,7 @@ ANP matters most for scenarios involving fully decentralized agent networks—op
 | **Transport** | HTTP + SSE + gRPC | HTTP + WebSocket |
 | **Discovery** | Agent Cards (.well-known) | DID + meta-protocol |
 | **Auth model** | OAuth 2.0, OIDC, mTLS | W3C DID, decentralized |
-| **Maturity** | Production-ready (v0.3+) | Early stage |
+| **Maturity** | Production-ready (v1.0) | Early stage |
 | **Best for** | Cross-org enterprise agents | Open agent internet |
 
 > ℹ️
@@ -1586,7 +1586,7 @@ When multiple agents work on related tasks, they may produce conflicting outputs
 
 Inter-agent communication introduces threat surfaces beyond those covered in Chapter 10 (Agentic Security and Safety). When agents communicate across trust boundaries, several new risks emerge.
 
-**Agent impersonation.** A malicious agent pretending to be a trusted one. Mitigation: verify Agent Cards cryptographically, use signed capabilities (A2A v0.3+), require mutual TLS or OAuth-based identity verification.
+**Agent impersonation.** A malicious agent pretending to be a trusted one. Mitigation: verify Agent Cards cryptographically, use Agent Card signatures (see current A2A specification), require mutual TLS or OAuth-based identity verification.
 
 **Cross-boundary prompt injection.** A compromised agent embedding adversarial instructions in messages sent to other agents—the "confused deputy" problem at the agent level. Mitigation: treat every inter-agent message as untrusted input, apply the same input sanitization you would apply to user messages (see Section 10.2).
 
@@ -1635,7 +1635,7 @@ Walk through what happens:
 
 Multi-agent systems are powerful but complex. Most teams should start with orchestrator-workers (Section 3.5) and graduate to protocol-based coordination only when the problem genuinely involves dynamic discovery, cross-organizational collaboration, or agents from different trust domains.
 
-The protocol landscape is converging: A2A for enterprise-scale agent collaboration, ACP for REST-native and edge scenarios, ANP for decentralized agent networks. All three complement MCP—which handles agent-to-tool communication—rather than competing with it.
+The protocol landscape is converging: A2A (which now incorporates ACP's REST-native contributions) for enterprise-scale agent collaboration, and ANP for decentralized agent networks. These protocols complement MCP—which handles agent-to-tool communication—rather than competing with it.
 
 When building multi-agent systems, prefer simple coordination patterns (hierarchical) and escalate to peer-to-peer or federation only when justified. Treat inter-agent communication as a security boundary. And remember the guide's core principle: start simple, add complexity only when evaluation shows you need it.
 
@@ -1891,7 +1891,7 @@ Separate read-only tools from write and action tools. Most agents need far fewer
 
 MCP makes least privilege practical at scale. Rather than giving every agent access to every tool server, compose tool sets per-agent. A customer support agent gets the support-ticket MCP server and the knowledge-base MCP server, but not the billing-modification MCP server. A research agent gets the web-search MCP server but not the internal-database MCP server. This composition is architectural—it is decided at deployment time, not at runtime.
 
-**A note on MCP-specific risks:** The convenience of remote MCP tool servers introduces its own attack surface. Research into tool poisoning (sometimes called "MCPTox") has demonstrated that malicious or compromised tool servers can embed hidden instructions in tool descriptions or responses that manipulate agent behavior at high rates in unmonitored environments. Mitigations include: vetting and auditing MCP servers before connecting them, reviewing tool descriptions for hidden instructions, monitoring tool responses for anomalous content, and applying the same input/output filtering to MCP tool results as you would to any other untrusted data source. The principle is straightforward: a remote tool server is an external dependency with the same trust profile as any third-party API. Treat it accordingly.
+**A note on MCP-specific risks:** The convenience of remote MCP tool servers introduces its own attack surface. Malicious or compromised MCP tool servers can embed hidden instructions in tool descriptions or responses that manipulate agent behavior in unmonitored environments. Mitigations include: vetting and auditing MCP servers before connecting them, reviewing tool descriptions for hidden instructions, monitoring tool responses for anomalous content, and applying the same input/output filtering to MCP tool results as you would to any other untrusted data source. The principle is straightforward: a remote tool server is an external dependency with the same trust profile as any third-party API. Treat it accordingly.
 
 > ⚠️
 > **MCP servers are attack surfaces.** Malicious or compromised MCP servers can embed hidden instructions in tool descriptions and responses. Vet servers before connecting, pin versions, and apply input filtering to MCP results.
@@ -1992,7 +1992,7 @@ Sub-agent architectures work particularly well in this domain. One agent might p
 
 Context management becomes critical with large codebases. An agent working on a million-line codebase cannot load everything into context. Instead, the agent must search strategically, reading only the files relevant to the current task. This requires the ability to reason about which files matter and to navigate the codebase intelligently. Agents that can do this—by reading dependency graphs, searching for function definitions, understanding module structure—scale effectively.
 
-The industry has begun measuring coding agent performance against benchmarks like SWE-bench, which evaluates agents on real GitHub issues. Performance has improved substantially over the past year, as measured on benchmarks like SWE-bench (see Appendix C). Current agents can resolve a meaningful share of real-world issues autonomously, though production autonomy rates depend heavily on domain and tooling. Human-in-the-loop workflows push success rates considerably higher. This trajectory suggests that coding agents will become standard tools within engineering teams.
+The industry has begun measuring coding agent performance against benchmarks like SWE-bench Verified, which evaluates agents on real GitHub issues (see Appendix C for sourcing guidance on benchmark claims). Current agents can resolve a meaningful share of real-world issues autonomously, though production success rates depend heavily on domain and tooling. Human-in-the-loop workflows push success rates considerably higher. Coding agents are increasingly adopted within engineering teams.
 
 ## 11.3 Research and Analysis Agents
 
@@ -2117,7 +2117,7 @@ As you improve, re-evaluate immediately. You need fast feedback. If your eval pi
 
 Set up continuous evaluation pipelines that run on every code change, every prompt modification, and every model upgrade. Many of the highest-performing teams treat evals like tests—they do not push changes to production without evidence from eval runs.
 
-The iterative loop compounds over time. Each cycle reveals weaknesses in your system and suggests improvements. After ten cycles, you understand your agent's failure modes deeply and know how to fix them. This is how teams go from a prototype that works 60% of the time to a production system that works 95% of the time.
+The iterative loop compounds over time. Each cycle reveals weaknesses in your system and suggests improvements. After ten cycles, you understand your agent's failure modes deeply and know how to fix them. This is how teams go from an inconsistent prototype to a production-grade system.
 
 
 ---
